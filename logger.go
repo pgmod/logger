@@ -80,7 +80,7 @@ func filterPrint(str string) string {
 	return str
 }
 func (l Logger) print(message ...any) {
-	fmt.Println(filterPrint(fmt.Sprint(message...)))
+	fmt.Println(fmt.Sprint(message...))
 }
 
 func (l Logger) Info(message ...any) {
@@ -92,7 +92,7 @@ func (l Logger) Info(message ...any) {
 	}
 }
 func (l *Logger) ErrorL(err error) {
-	errText := ""
+	errText := l.CustomPrefix + ERORprefix
 	for i := 1; i < 10; i++ {
 		_, filename, line, _ := runtime.Caller(i)
 		if line == 0 {
@@ -101,7 +101,7 @@ func (l *Logger) ErrorL(err error) {
 		errText = errText + "\n" + filename + ":" + fmt.Sprint(line)
 	}
 	log := strings.ReplaceAll(errText+"\n"+err.Error(), "\n", "\n"+l.CustomPrefix+ERORprefix)
-	l.wf(MSGprefix + log)
+	l.wf(log)
 	if l.level >= 0 {
 		if err != nil {
 
@@ -112,7 +112,7 @@ func (l *Logger) ErrorL(err error) {
 }
 
 func Struct(msg any) string {
-	return fmt.Sprintf("%+v", msg)
+	return filterPrint(fmt.Sprintf("%+v", msg))
 }
 func Hex(bytes []byte) string {
 	var sb strings.Builder
