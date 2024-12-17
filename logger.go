@@ -9,6 +9,24 @@ import (
 	"strings"
 )
 
+var cwd string
+
+func init() {
+	cwd, _ = os.Getwd()
+	cwd = strings.ReplaceAll(cwd, "\\", "/")
+
+}
+
+// Определение уровней логирования с использованием iota
+const (
+	LevelError = iota
+	LevelWarn
+	LevelInfo
+	LevelDebug
+	LevelDebug2
+)
+
+// Цветные префиксы для логирования
 const (
 	MSGprefix   = "\033[34m" + "INFO: " + "\033[0m"
 	ERORprefix  = "\033[31m" + "EROR: " + "\033[0m"
@@ -18,23 +36,32 @@ const (
 )
 
 type Logger struct {
-	// 0 - ошибки
-	// 1 - варны
-	// 2 - вывод
-	// 3 - отладка
-	level        int    `default:"3"`
-	fileName     string `default:"proj.log"`
-	needPrefix   bool   `default:"true"`
-	customPrefix string `default:"logger-0: "`
+	level        int
+	fileName     string
+	needPrefix   bool
+	customPrefix string
+	file         *os.File
 }
 
+// Создание нового логгера
 func NewLogger(logLevel int, fileName string, needLevelPrefix bool, loggerPrefix string) *Logger {
+	var f *os.File
+
+	// Открываем файл только один раз
+	if fileName != "" {
+		var err error
+		f, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
+	}
 
 	return &Logger{
 		level:        logLevel,
 		fileName:     fileName,
 		needPrefix:   needLevelPrefix,
 		customPrefix: loggerPrefix,
+		file:         f,
 	}
 }
 
@@ -54,120 +81,92 @@ func (l *Logger) SetCustomPrefix(customPrefix string) {
 	l.customPrefix = customPrefix
 }
 
-func (l *Logger) ErrorL(err error) {
-	errText := l.customPrefix + ERORprefix
-	for i := 1; i < 10; i++ {
-		_, filename, line, _ := runtime.Caller(i)
-		if line == 0 {
-			break
-		}
-		errText = errText + "\n" + filename + ":" + fmt.Sprint(line)
-	}
-	log := strings.ReplaceAll(errText+"\n"+err.Error(), "\n", "\n"+l.customPrefix+ERORprefix)
-	l.wf(log)
-	if l.level >= 0 {
-		if err != nil {
-
-			l.print(log)
-
-		}
+// Закрытие файла для логгера
+func (l *Logger) Close() {
+	if l.file != nil {
+		l.file.Close()
 	}
 }
 
-func (l Logger) Error(message ...any) {
-	log := strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+ERORprefix)
-	l.wf(ERORprefix + log)
-	if l.level >= 1 {
-		l.print(l.customPrefix + ERORprefix + log)
+// Вспомогательная функция для логирования
+func (l Logger) logMessage(levelPrefix string, levelThreshold int, message ...any) {
+	log := l.customPrefix + levelPrefix + strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+levelPrefix)
+
+	_, filename, line, _ := runtime.Caller(2) // столько вложенных функций необходимо до того как программа дойдет до l.logMessage
+	filename = strings.ReplaceAll(filename, cwd, "")
+	log = strings.ReplaceAll(log, "{f}", strings.TrimLeft(filename, "/"))
+	log = strings.ReplaceAll(log, "{l}", fmt.Sprint(line))
+
+	l.writeToFile(log)
+
+	if l.level >= levelThreshold {
+		fmt.Println(log)
 	}
+}
+
+// Функция для логирования стека вызовов и ошибки
+func (l Logger) ErrorL(err error) {
+	if err == nil {
+		return
+	}
+
+	var stackTrace strings.Builder
+	// stackTrace.WriteString(l.customPrefix + ERORprefix + " " + err.Error() + "\n")
+
+	// Добавляем стек вызовов
+	for i := 1; i < 10; i++ {
+		_, file, line, ok := runtime.Caller(i)
+		if !ok {
+			break
+		}
+		stackTrace.WriteString(fmt.Sprintf("%s:%d\n", file, line))
+	}
+
+	// Добавляем информацию об ошибке
+	stackTrace.WriteString(err.Error())
+
+	// Итоговый лог
+	logText := stackTrace.String()
+
+	// Записываем и печатаем лог
+	if l.level >= LevelError {
+		l.logMessage(ERORprefix, LevelError, logText)
+	}
+}
+
+// Методы для разных уровней логирования
+func (l Logger) Error(message ...any) {
+	l.logMessage(ERORprefix, LevelError, message...)
 }
 
 func (l Logger) Warn(message ...any) {
-	log := strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+WARNprefix)
-	l.wf(WARNprefix + log)
-	if l.level >= 1 {
-		l.print(l.customPrefix + WARNprefix + log)
-	}
+	l.logMessage(WARNprefix, LevelWarn, message...)
 }
 
 func (l Logger) Info(message ...any) {
-	log := strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+MSGprefix)
-	l.wf(MSGprefix + log)
-
-	if l.level >= 2 {
-		l.print(l.customPrefix + MSGprefix + log)
-	}
+	l.logMessage(MSGprefix, LevelInfo, message...)
 }
 
 func (l Logger) Debug(message ...any) {
-	log := strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+DEBGprefix)
-	l.wf(DEBGprefix + log)
-	if l.level >= 3 {
-		if l.needPrefix {
-
-			l.print(l.customPrefix + DEBGprefix + log)
-		} else {
-			l.print(fmt.Sprint(message...))
-
-		}
-	}
+	l.logMessage(DEBGprefix, LevelDebug, message...)
 }
 
 func (l Logger) Debug2(message ...any) {
-	log := strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+DEBG2prefix)
-	l.wf(DEBG2prefix + log)
-	if l.level >= 4 {
-		if l.needPrefix {
-			l.print(l.customPrefix + DEBG2prefix + log)
-		} else {
-			l.print(fmt.Sprint(message...))
-		}
-	}
+	l.logMessage(DEBG2prefix, LevelDebug2, message...)
 }
 
-func (l Logger) wf(message ...any) { // NOTE открытие файла можно перенести в конструктор для оптимизации
-	if l.fileName != "" {
-
-		f, err := os.OpenFile(l.fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+// Запись в файл
+func (l Logger) writeToFile(message string) {
+	if l.file != nil {
+		_, err := l.file.WriteString(clearFromEscapes(message) + "\n")
 		if err != nil {
-			log.Fatalf("error opening file: %v", err)
-		}
-		_, err = f.WriteString(clearFromEscapes(fmt.Sprint(message...)) + "\n")
-		if err != nil {
-			log.Fatal(err)
+			log.Printf("error writing to file: %v", err)
 		}
 	}
-}
-
-func (l Logger) print(message ...any) {
-
-	f, _ := os.Getwd()
-	msg := fmt.Sprint(message...)
-	_, filename, line, _ := runtime.Caller(2) // 2 - столько вложенных функций необходимо до того как программа дойдет до l.print
-	filename = strings.ReplaceAll(filename, "/", "\\")
-	filename = strings.ReplaceAll(filename, f, "")
-	msg = strings.ReplaceAll(msg, "{f}", filename[1:])
-	msg = strings.ReplaceAll(msg, "{l}", fmt.Sprint(line))
-	fmt.Println(msg)
 }
 
 func Struct(msg any) string {
 	return filterPrint(fmt.Sprintf("%+v", msg))
-}
-
-func Hex(bytes []byte) string {
-	var sb strings.Builder
-	sb.WriteString("[")
-
-	for i, b := range bytes {
-		if i > 0 {
-			sb.WriteString(" ")
-		}
-		fmt.Fprintf(&sb, "%02x", b)
-	}
-
-	sb.WriteString("]")
-	return sb.String()
 }
 
 func filterPrint(str string) string {
@@ -186,6 +185,23 @@ func filterPrint(str string) string {
 	return str
 }
 
+// Преобразование байтов в шестнадцатеричную строку вида [00 00 00]
+func Hex(bytes []byte) string {
+	var sb strings.Builder
+	sb.WriteString("[")
+
+	for i, b := range bytes {
+		if i > 0 {
+			sb.WriteString(" ")
+		}
+		fmt.Fprintf(&sb, "%02x", b)
+	}
+
+	sb.WriteString("]")
+	return sb.String()
+}
+
+// Очистка символов escape из строки
 func clearFromEscapes(str string) string {
 	re := regexp.MustCompile(`\033\[\d+m`)
 	return re.ReplaceAllString(str, "")
