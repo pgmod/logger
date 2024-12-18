@@ -12,7 +12,7 @@ import (
 func TestFile(t *testing.T) {
 	tempFileName := fmt.Sprintf("test-%d.log", os.Getpid())
 
-	Logger := NewLogger(LevelDebug2, tempFileName, true, "test: ")
+	Logger := NewLogger(LevelDebug2, tempFileName, true, "test: ", true)
 	Logger.Info("this ", "is ", "info ", "message")
 	Logger.Error("this ", "is ", "error ", "message")
 	Logger.ErrorL(errors.New("this is errorL message on {f}:{l}"))

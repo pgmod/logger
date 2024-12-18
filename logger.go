@@ -41,27 +41,24 @@ type Logger struct {
 	needPrefix   bool
 	customPrefix string
 	file         *os.File
+	rewrite      bool
 }
 
 // Создание нового логгера
-func NewLogger(logLevel int, fileName string, needLevelPrefix bool, loggerPrefix string) *Logger {
+func NewLogger(logLevel int, fileName string, needLevelPrefix bool, loggerPrefix string, rewrite bool) *Logger {
 	var f *os.File
 
-	if fileName != "" {
-		var err error
-		f, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			log.Fatalf("error opening file: %v", err)
-		}
-	}
-
-	return &Logger{
+	l := Logger{
 		level:        logLevel,
 		fileName:     fileName,
 		needPrefix:   needLevelPrefix,
 		customPrefix: loggerPrefix,
 		file:         f,
+		rewrite:      rewrite,
 	}
+	l.SetFileName(fileName)
+
+	return &l
 }
 
 func (l *Logger) SetLevel(level int) {
@@ -69,15 +66,7 @@ func (l *Logger) SetLevel(level int) {
 }
 
 func (l *Logger) SetFileName(fileName string) {
-	l.fileName = fileName
-	l.Close()
-	if fileName != "" {
-		var err error
-		l.file, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			log.Fatalf("error opening file: %v", err)
-		}
-	}
+	l.setFile(fileName, l.rewrite)
 }
 
 func (l *Logger) SetNeedPrefix(needPrefix bool) {
@@ -92,6 +81,26 @@ func (l *Logger) SetCustomPrefix(customPrefix string) {
 func (l *Logger) Close() {
 	if l.file != nil {
 		l.file.Close()
+	}
+}
+
+func (l *Logger) setFile(fileName string, rewrite bool) {
+	l.fileName = fileName
+	l.Close()
+	if fileName != "" {
+		var err error
+		if rewrite {
+			err = os.Remove(fileName)
+			if err != nil {
+				if !os.IsNotExist(err) {
+					log.Fatalf("error removing file: %v", err)
+				}
+			}
+		}
+		l.file, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
 	}
 }
 
