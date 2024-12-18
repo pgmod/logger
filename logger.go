@@ -47,7 +47,6 @@ type Logger struct {
 func NewLogger(logLevel int, fileName string, needLevelPrefix bool, loggerPrefix string) *Logger {
 	var f *os.File
 
-	// Открываем файл только один раз
 	if fileName != "" {
 		var err error
 		f, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
@@ -71,6 +70,14 @@ func (l *Logger) SetLevel(level int) {
 
 func (l *Logger) SetFileName(fileName string) {
 	l.fileName = fileName
+	l.Close()
+	if fileName != "" {
+		var err error
+		l.file, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
+	}
 }
 
 func (l *Logger) SetNeedPrefix(needPrefix bool) {
