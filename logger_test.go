@@ -7,12 +7,14 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFile(t *testing.T) {
 	tempFileName := fmt.Sprintf("test-%d.log", os.Getpid())
 
 	Logger := NewLogger(LevelDebug2, tempFileName, true, "test: ", true)
+	Logger.SetTimeFromat("")
 	Logger.Info("this ", "is ", "info ", "message")
 	Logger.Error("this ", "is ", "error ", "message")
 	Logger.ErrorL(errors.New("this is errorL message on {f}:{l}"))
@@ -33,6 +35,22 @@ test: EROR: this is errorL message on logger_test.go:%d
 	if string(data) != exc {
 		t.Errorf("expected %s, got %s", exc, data)
 	}
+	os.Remove(tempFileName)
+}
+
+func TestTimeFormat(t *testing.T) {
+	tempFileName := fmt.Sprintf("test-%d.log", os.Getpid())
+	Logger := NewLogger(LevelDebug2, tempFileName, true, "test: ", true)
+	Logger.SetTimeFromat("[15:04:05] ")
+	now := time.Now().Format("15:04:05")
+	Logger.Info("this ", "is ", "info ", "message")
+
+	rawData, _ := os.ReadFile(tempFileName)
+	data := strings.ReplaceAll(string(rawData), "\r", "")
+	if !strings.Contains(data, now) {
+		t.Errorf("expected %s, got %s", now, data)
+	}
+	Logger.Close()
 	os.Remove(tempFileName)
 }
 

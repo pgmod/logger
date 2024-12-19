@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 )
 
 var cwd string
@@ -14,7 +15,6 @@ var cwd string
 func init() {
 	cwd, _ = os.Getwd()
 	cwd = strings.ReplaceAll(cwd, "\\", "/")
-
 }
 
 // Определение уровней логирования с использованием iota
@@ -42,6 +42,7 @@ type Logger struct {
 	customPrefix string
 	file         *os.File
 	rewrite      bool
+	timeFromat   string
 }
 
 // Создание нового логгера
@@ -57,7 +58,7 @@ func NewLogger(logLevel int, fileName string, needLevelPrefix bool, loggerPrefix
 		rewrite:      rewrite,
 	}
 	l.SetFileName(fileName)
-
+	l.SetTimeFromat("[2006-01-02 15:04:05] ")
 	return &l
 }
 
@@ -75,6 +76,10 @@ func (l *Logger) SetNeedPrefix(needPrefix bool) {
 
 func (l *Logger) SetCustomPrefix(customPrefix string) {
 	l.customPrefix = customPrefix
+}
+
+func (l *Logger) SetTimeFromat(timeFromat string) {
+	l.timeFromat = timeFromat
 }
 
 // Закрытие файла для логгера
@@ -106,7 +111,8 @@ func (l *Logger) setFile(fileName string, rewrite bool) {
 
 // Вспомогательная функция для логирования
 func (l Logger) logMessage(levelPrefix string, levelThreshold int, message ...any) {
-	log := l.customPrefix + levelPrefix + strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+levelPrefix)
+	timestamp := time.Now().Format(l.timeFromat)
+	log := fmt.Sprintf("%s%s%s%s", timestamp, l.customPrefix, levelPrefix, strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+levelPrefix))
 
 	_, filename, line, _ := runtime.Caller(2) // столько вложенных функций необходимо до того как программа дойдет до l.logMessage
 	filename = strings.ReplaceAll(filename, cwd, "")
