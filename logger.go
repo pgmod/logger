@@ -42,7 +42,7 @@ type Logger struct {
 	customPrefix string
 	file         *os.File
 	rewrite      bool
-	timeFromat   string
+	timeFormat   string
 }
 
 // Создание нового логгера
@@ -58,7 +58,7 @@ func NewLogger(logLevel int, fileName string, needLevelPrefix bool, loggerPrefix
 		rewrite:      rewrite,
 	}
 	l.SetFileName(fileName)
-	l.SetTimeFromat("[2006-01-02 15:04:05] ")
+	l.SetTimeFormat("[2006-01-02 15:04:05] ")
 	return &l
 }
 
@@ -78,8 +78,8 @@ func (l *Logger) SetCustomPrefix(customPrefix string) {
 	l.customPrefix = customPrefix
 }
 
-func (l *Logger) SetTimeFromat(timeFromat string) {
-	l.timeFromat = timeFromat
+func (l *Logger) SetTimeFormat(timeFormat string) {
+	l.timeFormat = timeFormat
 }
 
 // Закрытие файла для логгера
@@ -111,7 +111,7 @@ func (l *Logger) setFile(fileName string, rewrite bool) {
 
 // Вспомогательная функция для логирования
 func (l Logger) logMessage(levelPrefix string, levelThreshold int, message ...any) {
-	timestamp := time.Now().Format(l.timeFromat)
+	timestamp := time.Now().Format(l.timeFormat)
 	log := fmt.Sprintf("%s%s%s%s", timestamp, l.customPrefix, levelPrefix, strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+levelPrefix))
 
 	_, filename, line, _ := runtime.Caller(2) // столько вложенных функций необходимо до того как программа дойдет до l.logMessage
