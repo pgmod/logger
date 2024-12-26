@@ -13,8 +13,9 @@ import (
 func TestFile(t *testing.T) {
 	tempFileName := fmt.Sprintf("test-%d.log", os.Getpid())
 
-	Logger := NewLogger(LevelDebug2, tempFileName, true, "test: ", true)
-	Logger.SetTimeFormat("")
+	Logger := NewLogger(LevelDebug2, tempFileName, true, "test", true)
+	Logger.SetLogFormat("{p}: {s0}{s1}{s1}{s2}: {m}")
+
 	Logger.Info("this ", "is ", "info ", "message")
 	Logger.Warn("this ", "is ", "wаrning ", "message")
 	Logger.Debug("this ", "is ", "dеbug ", "message")
@@ -28,30 +29,54 @@ test: WW: this is wаrning message
 test: DD: this is dеbug message
 test: VV: this is verbose message
 test: EE: this is error message
-test: EE: 
 test: EE: this is errorL message on logger_test.go:%d
 test: EE: at logger.TestFile in %s:%d
 test: EE: at testing.tRunner in C:/Program Files/Go/src/testing/testing.go:1690
-test: EE: at runtime.goexit in C:/Program Files/Go/src/runtime/asm_amd64.s:1700
-test: EE: 
-`, line, filename, line)
+test: EE: at runtime.goexit in C:/Program Files/Go/src/runtime/asm_amd64.s:1700`+"\n", line, filename, line)
 	exc = strings.ReplaceAll(exc, "\r", "")
 	Logger.Close()
 
 	rawData, _ := os.ReadFile(tempFileName)
 	data := strings.ReplaceAll(string(rawData), "\r", "")
-	if string(data) != exc {
+	if data != exc {
+		fmt.Println("got\n", Hex(rawData), "\nexpected\n", Hex([]byte(exc)))
 		t.Errorf("expected %s, got %s", exc, data)
 	}
 	os.Remove(tempFileName)
 }
 
-func TestTimeFormat(t *testing.T) {
+func TestFormat(t *testing.T) {
 	tempFileName := fmt.Sprintf("test-%d.log", os.Getpid())
-	Logger := NewLogger(LevelDebug2, tempFileName, true, "test: ", true)
-	Logger.SetTimeFormat("[15:04:05] ")
+	Logger := NewLogger(LevelVerbose, tempFileName, true, "test", true)
+	Logger.Debug("this is default debug message")
+	Logger.Debug("this is another debug message")
+	fmt.Println("")
+	Logger.SetTimeFormat("15:04:05")
 	now := time.Now().Format("15:04:05")
+
+	Logger.SetLogFormat("{s0}{s1}┐{s2}[{t} in {p}]:\n {s0}└{m}{s2}")
 	Logger.Info("this ", "is ", "info ", "message")
+	fmt.Println("")
+	Logger.SetLogFormat("{t}/{p}/{s1}/{s0}{m}{s2}")
+	Logger.Warn(`this
+is
+big
+warning
+message`)
+
+	fmt.Println("")
+	Logger.SetLogFormat(
+		"{s}[{t}]{s0}{p} ┬─{m}{s2}",
+		"               {s0} ├─{m}{s2}",
+		"               {s0} └─{m}{s2}",
+
+		"{s}[{t}]{s0}{p} ──{m}{s2}",
+	)
+	Logger.Info("1\n2\n3\n4")
+	Logger.Warn("1\n2\n3")
+	Logger.Error("a\nb\nc")
+	Logger.Debug("1\n2")
+	Logger.Verbose("1")
 
 	rawData, _ := os.ReadFile(tempFileName)
 	data := strings.ReplaceAll(string(rawData), "\r", "")

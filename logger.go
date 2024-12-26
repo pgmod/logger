@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"runtime"
@@ -29,17 +28,13 @@ const (
 )
 
 // Цветные префиксы для логирования
-const (
+var (
 	// Зеленый (Green)
-	infoPrefix = "\033[32m" + "II: " + "\033[0m"
-	// Красный (Red)
-	errorPrefix = "\033[31m" + "EE: " + "\033[0m"
-	// Оранжевый/Желтый (Yellow)
-	warnPrefix = "\033[33m" + "WW: " + "\033[0m"
-	// Синий (Blue)
-	debugPrefix = "\033[34m" + "DD: " + "\033[0m"
-	// Ярко-желтый (Bright Yellow)
-	verbosePrefix = "\033[93m" + "VV: " + "\033[0m"
+	infoPrefix    = []string{"\033[32m", "I", "\033[0m"}
+	errorPrefix   = []string{"\033[31m", "E", "\033[0m"}
+	warnPrefix    = []string{"\033[33m", "W", "\033[0m"}
+	debugPrefix   = []string{"\033[34m", "D", "\033[0m"}
+	verbosePrefix = []string{"\033[93m", "V", "\033[0m"}
 )
 
 type Logger struct {
@@ -50,6 +45,14 @@ type Logger struct {
 	file         *os.File
 	rewrite      bool
 	timeFormat   string
+	// Формат логирования
+	logFormat string
+	// Дополнительное фформатирование для второй и последующей строки
+	advLogFormat string
+	// Дополнительное фформатирование для последней строки
+	endLogFormat string
+	// Дополнительное фформатирование для одиночных строк
+	singleLogFormat string
 }
 
 // Создание нового логгера
@@ -65,7 +68,8 @@ func NewLogger(logLevel int, fileName string, needLevelPrefix bool, loggerPrefix
 		rewrite:      rewrite,
 	}
 	l.SetFileName(fileName)
-	l.SetTimeFormat("[2006-01-02 15:04:05] ")
+	l.SetTimeFormat("2006-01-02 15:04:05")
+	l.SetLogFormat("[{t}] {p} {s0}{s1}{s1}{s2}: {m}")
 	return &l
 }
 
@@ -89,6 +93,61 @@ func (l *Logger) SetTimeFormat(timeFormat string) {
 	l.timeFormat = timeFormat
 }
 
+// SetLogFormat изменяет формат логирования, используемый логгером.
+//
+// Первый параметр logFormats[0] задает формат для первого сообщения лога
+// в группе связанных лог-сообщений. Если указан только один параметр,
+// этот формат используется для всех сообщений в группе.
+//
+// Второй параметр logFormats[1] задает формат для всех лог-сообщений в группе,
+// кроме первого и последнего. Если указаны только два параметра,
+// второй параметр используется также для последнего сообщения в группе.
+//
+// Третий параметр logFormats[2] задает формат для последнего сообщения в группе.
+//
+// Четвертый параметр logFormats[3] задает формат сообщений, которые не
+// входят в группу.
+//
+// Плейсхолдеры:
+//
+// {t} - время логирования
+//
+// {p} - префикс логгера
+//
+// {s} - уровень логирования
+//
+// {s0} - цвет уровня логирования
+//
+// {s1} - символ уровня логирования
+//
+// {s2} - удаление цвета уровня логирования
+//
+// {s} - уровень логирования
+//
+// {m} - сообщение
+//
+// {f} - имя файла
+//
+// {l} - номер строки
+func (l *Logger) SetLogFormat(logFormats ...string) {
+	if len(logFormats) > 0 {
+		l.logFormat = logFormats[0]
+		l.advLogFormat = logFormats[0]
+		l.endLogFormat = logFormats[0]
+		l.singleLogFormat = logFormats[0]
+	}
+	if len(logFormats) > 1 {
+		l.advLogFormat = logFormats[1]
+		l.endLogFormat = logFormats[1]
+	}
+	if len(logFormats) > 2 {
+		l.endLogFormat = logFormats[2]
+	}
+	if len(logFormats) > 3 {
+		l.singleLogFormat = logFormats[3]
+	}
+}
+
 // Закрытие файла для логгера
 func (l *Logger) Close() {
 	if l.file != nil {
@@ -105,26 +164,58 @@ func (l *Logger) setFile(fileName string, rewrite bool) {
 			err = os.Remove(fileName)
 			if err != nil {
 				if !os.IsNotExist(err) {
-					log.Fatalf("error removing file: %v", err)
+					fmt.Println("error removing file:", err)
 				}
 			}
 		}
 		l.file, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
-			log.Fatalf("error opening file: %v", err)
+			fmt.Println("error opening file:", err)
 		}
 	}
 }
 
 // Вспомогательная функция для логирования
-func (l Logger) logMessage(levelPrefix string, levelThreshold int, message ...any) {
+func (l Logger) logMessage(levelPrefix []string, levelThreshold int, message ...any) {
 	timestamp := time.Now().Format(l.timeFormat)
-	log := fmt.Sprintf("%s%s%s%s", timestamp, l.customPrefix, levelPrefix, strings.ReplaceAll(fmt.Sprint(message...), "\n", "\n"+l.customPrefix+levelPrefix))
 
+	sb := strings.Builder{}
+	messages := strings.Split(fmt.Sprint(message...), "\n")
+	if len(messages) > 0 {
+		var log string
+		if len(messages) > 1 {
+			log = l.logFormat
+		} else {
+			log = l.singleLogFormat
+		}
+		log = strings.ReplaceAll(log, "{m}", messages[0])
+		sb.WriteString(log)
+		sb.WriteString("\n")
+		if len(messages) > 1 {
+			for _, message := range messages[1 : len(messages)-1] {
+				log := l.advLogFormat
+				log = strings.ReplaceAll(log, "{m}", message)
+				sb.WriteString(log)
+				sb.WriteString("\n")
+			}
+			log := l.endLogFormat
+			log = strings.ReplaceAll(log, "{m}", messages[len(messages)-1])
+			sb.WriteString(log)
+			sb.WriteString("\n")
+		}
+	}
+	log := sb.String()
 	_, filename, line, _ := runtime.Caller(2) // столько вложенных функций необходимо до того как программа дойдет до l.logMessage
 	filename = strings.ReplaceAll(filename, cwd, "")
 	log = strings.ReplaceAll(log, "{f}", strings.TrimLeft(filename, "/"))
 	log = strings.ReplaceAll(log, "{l}", fmt.Sprint(line))
+	log = strings.ReplaceAll(log, "{t}", timestamp)
+	log = strings.ReplaceAll(log, "{p}", l.customPrefix)
+	log = strings.ReplaceAll(log, "{s}", levelPrefix[0]+levelPrefix[1]+levelPrefix[2])
+	log = strings.ReplaceAll(log, "{s0}", levelPrefix[0])
+	log = strings.ReplaceAll(log, "{s1}", levelPrefix[1])
+	log = strings.ReplaceAll(log, "{s2}", levelPrefix[2])
+	log = log[:len(log)-1]
 
 	l.writeToFile(log)
 
@@ -143,7 +234,7 @@ func (l Logger) ErrorL(err error) {
 	// stackTrace.WriteString(l.customPrefix + ERORprefix + " " + err.Error() + "\n")
 
 	// Добавляем информацию об ошибке
-	stackTrace.WriteString("\n" + err.Error() + "\n")
+	stackTrace.WriteString(err.Error() + "\n")
 
 	stackTrace.WriteString(getStackTrace())
 
@@ -187,7 +278,7 @@ func (l Logger) writeToFile(message string) {
 	if l.file != nil {
 		_, err := l.file.WriteString(clearFromEscapes(message) + "\n")
 		if err != nil {
-			log.Printf("error writing to file: %v", err)
+			fmt.Println("error writing to file:", err)
 		}
 	}
 }
@@ -250,9 +341,11 @@ func getStackTrace() string {
 		frame, more := frames.Next()
 		funcPaths := strings.Split(frame.Function, "/")
 		funcName := funcPaths[len(funcPaths)-1]
-		stackTrace.WriteString(fmt.Sprintf("at %s in %s:%d\n", funcName, frame.File, frame.Line))
+		stackTrace.WriteString(fmt.Sprintf("at %s in %s:%d", funcName, frame.File, frame.Line))
 		if !more {
 			break
+		} else {
+			stackTrace.WriteString("\n")
 		}
 	}
 
