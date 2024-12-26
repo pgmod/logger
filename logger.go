@@ -23,16 +23,23 @@ const (
 	LevelWarn
 	LevelInfo
 	LevelDebug
-	LevelDebug2
+	LevelVerbose
+	// Deprecated: use LevelVerbose instead.
+	LevelDebug2 = LevelVerbose
 )
 
 // Цветные префиксы для логирования
 const (
-	MSGprefix   = "\033[34m" + "INFO: " + "\033[0m"
-	ERORprefix  = "\033[31m" + "EROR: " + "\033[0m"
-	WARNprefix  = "\033[33m" + "WARN: " + "\033[0m"
-	DEBGprefix  = "\033[35m" + "DBG1: " + "\033[0m"
-	DEBG2prefix = "\033[36m" + "DBG2: " + "\033[0m"
+	// Зеленый (Green)
+	infoPrefix = "\033[32m" + "II: " + "\033[0m"
+	// Красный (Red)
+	errorPrefix = "\033[31m" + "EE: " + "\033[0m"
+	// Оранжевый/Желтый (Yellow)
+	warnPrefix = "\033[33m" + "WW: " + "\033[0m"
+	// Синий (Blue)
+	debugPrefix = "\033[34m" + "DD: " + "\033[0m"
+	// Ярко-желтый (Bright Yellow)
+	verbosePrefix = "\033[93m" + "VV: " + "\033[0m"
 )
 
 type Logger struct {
@@ -152,29 +159,34 @@ func (l Logger) ErrorL(err error) {
 
 	// Записываем и печатаем лог
 	if l.level >= LevelError {
-		l.logMessage(ERORprefix, LevelError, logText)
+		l.logMessage(errorPrefix, LevelError, logText)
 	}
 }
 
 // Методы для разных уровней логирования
 func (l Logger) Error(message ...any) {
-	l.logMessage(ERORprefix, LevelError, message...)
+	l.logMessage(errorPrefix, LevelError, message...)
 }
 
 func (l Logger) Warn(message ...any) {
-	l.logMessage(WARNprefix, LevelWarn, message...)
+	l.logMessage(warnPrefix, LevelWarn, message...)
 }
 
 func (l Logger) Info(message ...any) {
-	l.logMessage(MSGprefix, LevelInfo, message...)
+	l.logMessage(infoPrefix, LevelInfo, message...)
 }
 
 func (l Logger) Debug(message ...any) {
-	l.logMessage(DEBGprefix, LevelDebug, message...)
+	l.logMessage(debugPrefix, LevelDebug, message...)
 }
 
+// Deprecated: use the Verbose method instead.
 func (l Logger) Debug2(message ...any) {
-	l.logMessage(DEBG2prefix, LevelDebug2, message...)
+	l.Verbose(message...)
+}
+
+func (l Logger) Verbose(message ...any) {
+	l.logMessage(verbosePrefix, LevelVerbose, message...)
 }
 
 // Запись в файл

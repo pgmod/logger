@@ -16,16 +16,22 @@ func TestFile(t *testing.T) {
 	Logger := NewLogger(LevelDebug2, tempFileName, true, "test: ", true)
 	Logger.SetTimeFormat("")
 	Logger.Info("this ", "is ", "info ", "message")
+	Logger.Warn("this ", "is ", "wаrning ", "message")
+	Logger.Debug("this ", "is ", "dеbug ", "message")
+	Logger.Verbose("this ", "is ", "verbose ", "message")
 	Logger.Error("this ", "is ", "error ", "message")
 	Logger.ErrorL(errors.New("this is errorL message on {f}:{l}"))
 	_, filename, line, _ := runtime.Caller(0)
 	line -= 1
-	exc := fmt.Sprintf(`test: INFO: this is info message
-test: EROR: this is error message
-test: EROR: %s:%d
-test: EROR: C:/Program Files/Go/src/testing/testing.go:1690
-test: EROR: C:/Program Files/Go/src/runtime/asm_amd64.s:1700
-test: EROR: this is errorL message on logger_test.go:%d
+	exc := fmt.Sprintf(`test: II: this is info message
+test: WW: this is wаrning message
+test: DD: this is dеbug message
+test: VV: this is verbose message
+test: EE: this is error message
+test: EE: %s:%d
+test: EE: C:/Program Files/Go/src/testing/testing.go:1690
+test: EE: C:/Program Files/Go/src/runtime/asm_amd64.s:1700
+test: EE: this is errorL message on logger_test.go:%d
 `, filename, line, line)
 	exc = strings.ReplaceAll(exc, "\r", "")
 	Logger.Close()
