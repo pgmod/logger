@@ -28,11 +28,13 @@ test: WW: this is wаrning message
 test: DD: this is dеbug message
 test: VV: this is verbose message
 test: EE: this is error message
-test: EE: %s:%d
-test: EE: C:/Program Files/Go/src/testing/testing.go:1690
-test: EE: C:/Program Files/Go/src/runtime/asm_amd64.s:1700
+test: EE: 
 test: EE: this is errorL message on logger_test.go:%d
-`, filename, line, line)
+test: EE: at logger.TestFile in %s:%d
+test: EE: at testing.tRunner in C:/Program Files/Go/src/testing/testing.go:1690
+test: EE: at runtime.goexit in C:/Program Files/Go/src/runtime/asm_amd64.s:1700
+test: EE: 
+`, line, filename, line)
 	exc = strings.ReplaceAll(exc, "\r", "")
 	Logger.Close()
 

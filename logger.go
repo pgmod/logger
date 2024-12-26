@@ -142,17 +142,10 @@ func (l Logger) ErrorL(err error) {
 	var stackTrace strings.Builder
 	// stackTrace.WriteString(l.customPrefix + ERORprefix + " " + err.Error() + "\n")
 
-	// Добавляем стек вызовов
-	for i := 1; i < 10; i++ {
-		_, file, line, ok := runtime.Caller(i)
-		if !ok {
-			break
-		}
-		stackTrace.WriteString(fmt.Sprintf("%s:%d\n", file, line))
-	}
-
 	// Добавляем информацию об ошибке
-	stackTrace.WriteString(err.Error())
+	stackTrace.WriteString("\n" + err.Error() + "\n")
+
+	stackTrace.WriteString(getStackTrace())
 
 	// Итоговый лог
 	logText := stackTrace.String()
@@ -239,4 +232,29 @@ func Hex(bytes []byte) string {
 func clearFromEscapes(str string) string {
 	re := regexp.MustCompile(`\033\[\d+m`)
 	return re.ReplaceAllString(str, "")
+}
+
+// пetStackTrace возвращает строку со стеком вызовов
+func getStackTrace() string {
+	// Создаем срез для хранения вызовов
+	pc := make([]uintptr, 10) // Максимум 10 вызовов в стектрейсе
+	n := runtime.Callers(3, pc)
+
+	// Получаем объекты Frame для каждого вызова
+	frames := runtime.CallersFrames(pc[:n])
+
+	var stackTrace strings.Builder
+
+	// Проходимся по вызовам и собираем информацию
+	for {
+		frame, more := frames.Next()
+		funcPaths := strings.Split(frame.Function, "/")
+		funcName := funcPaths[len(funcPaths)-1]
+		stackTrace.WriteString(fmt.Sprintf("at %s in %s:%d\n", funcName, frame.File, frame.Line))
+		if !more {
+			break
+		}
+	}
+
+	return stackTrace.String()
 }
