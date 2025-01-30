@@ -35,6 +35,8 @@ var (
 	warnPrefix    = []string{"\033[33m", "W", "\033[0m"}
 	debugPrefix   = []string{"\033[34m", "D", "\033[0m"}
 	verbosePrefix = []string{"\033[93m", "V", "\033[0m"}
+
+	defaultLogger = NewLogger(LevelVerbose, "", true, "", true)
 )
 
 type Logger struct {
@@ -73,24 +75,43 @@ func NewLogger(logLevel int, fileName string, needLevelPrefix bool, loggerPrefix
 	return &l
 }
 
+func SetLevel(level int) {
+	defaultLogger.SetLevel(level)
+}
 func (l *Logger) SetLevel(level int) {
 	l.level = level
 }
 
+func SetFileName(fileName string) {
+	defaultLogger.SetFileName(fileName)
+}
 func (l *Logger) SetFileName(fileName string) {
 	l.setFile(fileName, l.rewrite)
 }
 
+func SetNeedPrefix(needPrefix bool) {
+	defaultLogger.SetNeedPrefix(needPrefix)
+}
 func (l *Logger) SetNeedPrefix(needPrefix bool) {
 	l.needPrefix = needPrefix
 }
 
+func SetCustomPrefix(customPrefix string) {
+	defaultLogger.SetCustomPrefix(customPrefix)
+}
 func (l *Logger) SetCustomPrefix(customPrefix string) {
 	l.customPrefix = customPrefix
 }
 
+func SetTimeFormat(timeFormat string) {
+	defaultLogger.SetTimeFormat(timeFormat)
+}
 func (l *Logger) SetTimeFormat(timeFormat string) {
 	l.timeFormat = timeFormat
+}
+
+func SetLogFormat(logFormats ...string) {
+	defaultLogger.SetLogFormat(logFormats...)
 }
 
 // SetLogFormat изменяет формат логирования, используемый логгером.
@@ -146,6 +167,10 @@ func (l *Logger) SetLogFormat(logFormats ...string) {
 	if len(logFormats) > 3 {
 		l.singleLogFormat = logFormats[3]
 	}
+}
+
+func Close() {
+	defaultLogger.Close()
 }
 
 // Закрытие файла для логгера
@@ -223,6 +248,13 @@ func (l Logger) logMessage(levelPrefix []string, levelThreshold int, message ...
 		fmt.Println(log)
 	}
 }
+
+func ErrorL(err error)       { defaultLogger.ErrorL(err) }
+func Error(message ...any)   { defaultLogger.Error(message...) }
+func Warn(message ...any)    { defaultLogger.Warn(message...) }
+func Info(message ...any)    { defaultLogger.Info(message...) }
+func Debug(message ...any)   { defaultLogger.Debug(message...) }
+func Verbose(message ...any) { defaultLogger.Verbose(message...) }
 
 // Функция для логирования стека вызовов и ошибки
 func (l Logger) ErrorL(err error) {

@@ -120,3 +120,7 @@ func TestStruct(t *testing.T) {
 		t.Errorf("expected %s, got %s", exp, res)
 	}
 }
+
+func TestDefaultLogger(t *testing.T) {
+	Warn("test", "lol")
+}
